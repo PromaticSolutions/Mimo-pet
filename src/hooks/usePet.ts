@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './useAuth';
 
@@ -18,62 +18,58 @@ export const usePet = () => {
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  const fetchPet = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('pets')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw new Error(error.message);
+      }
+
+      if (!mounted.current) return;
+
+      if (data) {
+        setPet(data as Pet);
+      } else {
+        setPet(null);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar pet:', err);
+      if (mounted.current) setError('Erro ao buscar dados do pet.');
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
+    mounted.current = true;
 
-    const fetchPet = async (userId: string) => {
-      if (!mounted) return;
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const { data, error } = await supabase
-          .from('pets')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
-
-        if (!mounted) return;
-
-        if (error && error.code !== 'PGRST116') {
-          throw new Error(error.message);
-        }
-
-        setPet(data ? (data as Pet) : null);
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch pet data');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+    if (!authLoading) {
+      if (user) fetchPet(user.id);
+      else {
+        setPet(null);
+        setLoading(false);
       }
-    };
-
-    if (!authLoading && user) {
-      fetchPet(user.id);
-    } else if (!authLoading && !user) {
-      setPet(null);
-      setLoading(false);
     }
 
     return () => {
-      mounted = false;
+      mounted.current = false;
     };
   }, [user, authLoading]);
 
   const createPet = async (name: string) => {
     if (!user) {
-      setError('User not authenticated');
+      setError('Usuário não autenticado');
       return;
     }
-    
+
     setLoading(true);
-    setError(null);
-    
     try {
       const { data, error } = await supabase
         .from('pets')
@@ -81,28 +77,18 @@ export const usePet = () => {
         .select()
         .single();
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
+      if (error) throw new Error(error.message);
       setPet(data as Pet);
-      return data as Pet;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create pet');
-      throw err;
+      setError('Erro ao criar pet');
     } finally {
       setLoading(false);
     }
   };
 
   const updatePetStats = async (updates: Partial<Omit<Pet, 'id' | 'user_id'>>) => {
-    if (!pet) {
-      setError('Pet not found');
-      return;
-    }
-    
-    setError(null);
-    
+    if (!pet) return;
+
     try {
       const { data, error } = await supabase
         .from('pets')
@@ -111,49 +97,12 @@ export const usePet = () => {
         .select()
         .single();
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
+      if (error) throw new Error(error.message);
       setPet(data as Pet);
-      return data as Pet;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update pet stats');
-      throw err;
+      setError('Erro ao atualizar pet');
     }
   };
 
-  const refetchPet = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('pets')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        throw new Error(error.message);
-      }
-
-      setPet(data ? (data as Pet) : null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch pet data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { 
-    pet, 
-    loading, 
-    error, 
-    createPet, 
-    updatePetStats,
-    refetchPet 
-  };
+  return { pet, loading, error, fetchPet: () => user && fetchPet(user.id), createPet, updatePetStats };
 };
