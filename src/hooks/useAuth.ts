@@ -27,7 +27,7 @@ export const useAuth = () => {
 
   const mounted = useRef(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string): Promise<Profile | null> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -53,7 +53,7 @@ export const useAuth = () => {
 
       return {
         ...data,
-        diamonds: data.ouros ?? 0,
+        diamonds: data.ouros ?? 0, // mapear "ouros" para "diamonds"
       };
     } catch (err) {
       console.error('Erro inesperado em fetchProfile:', err);
@@ -62,52 +62,41 @@ export const useAuth = () => {
   };
 
   useEffect(() => {
-  mounted.current = true;
+    mounted.current = true;
 
-  const getInitialSession = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session:', session);
+    const getInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Session:', session);
 
-      if (!mounted.current) return;
-      setAuthState(prev => ({ ...prev, session, user: session?.user ?? null, loading: true }));
+        if (!mounted.current) return;
+        setAuthState(prev => ({ ...prev, session, user: session?.user ?? null, loading: true }));
 
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        if (mounted.current) setAuthState(prev => ({ ...prev, profile, loading: false }));
-      } else {
+        if (session?.user) {
+          console.log('Fetching profile for user:', session.user.id);
+          const profile = await fetchProfile(session.user.id);
+          if (mounted.current) setAuthState(prev => ({ ...prev, profile, loading: false }));
+        } else {
+          if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
+        }
+      } catch (err) {
+        console.error('Erro ao carregar sessão inicial:', err);
         if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
       }
-    } catch (err) {
-      console.error('Erro ao carregar sessão inicial:', err);
-      if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
-    }
 
-    // Teste de conexão Supabase
-    try {
-      const { data, error } = await supabase.from('profiles').select('*').limit(1);
-      if (error) console.error('Erro ao conectar Supabase:', error);
-      else console.log('Conexão Supabase OK:', data);
-    } catch (err) {
-      console.error('Erro inesperado no teste de conexão:', err);
-    }
-  };
+      // Teste de conexão Supabase
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').limit(1);
+        if (error) console.error('Erro ao conectar Supabase:', error);
+        else console.log('Conexão Supabase OK:', data);
+      } catch (err) {
+        console.error('Erro inesperado no teste de conexão:', err);
+      }
+    };
 
-  getInitialSession();
-}, []); // ✅ useEffect fechado corretamente
+    getInitialSession();
 
-
-  supabase
-    .from('profiles')
-    .select('*')
-    .limit(1)
-    .then(({ data, error }) => {
-      if (error) console.error('Erro ao conectar Supabase:', error);
-      else console.log('Conexão Supabase OK:', data);
-    });
-}, []);
-
-
+    // Listener de auth
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted.current) return;
 
