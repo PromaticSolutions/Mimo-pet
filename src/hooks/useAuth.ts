@@ -73,7 +73,6 @@ export const useAuth = () => {
       setAuthState(prev => ({ ...prev, session, user: session?.user ?? null, loading: true }));
 
       if (session?.user) {
-        console.log('Fetching profile for user:', session.user.id);
         const profile = await fetchProfile(session.user.id);
         if (mounted.current) setAuthState(prev => ({ ...prev, profile, loading: false }));
       } else {
@@ -85,19 +84,17 @@ export const useAuth = () => {
     }
 
     // Teste de conexão Supabase
-    supabase
-      .from('profiles')
-      .select('*')
-      .limit(1)
-      .then(({ data, error }) => {
-        if (error) console.error('Erro ao conectar Supabase:', error);
-        else console.log('Conexão Supabase OK:', data);
-      });
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').limit(1);
+      if (error) console.error('Erro ao conectar Supabase:', error);
+      else console.log('Conexão Supabase OK:', data);
+    } catch (err) {
+      console.error('Erro inesperado no teste de conexão:', err);
+    }
   };
 
   getInitialSession();
-
-}, []); // ✅ apenas um useEffect
+}, []); // ✅ useEffect fechado corretamente
 
 
   supabase
