@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Mimo Design System - Soft Pastels & Kawaii Aesthetic */
+    --background: 45 40% 98%;
+    --foreground: 160 15% 25%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 160 15% 25%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 15% 25%;
+
+    /* Mint Green - Primary */
+    --primary: 160 55% 65%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 160 45% 85%;
+
+    /* Soft Pink - Secondary */
+    --secondary: 340 65% 85%;
+    --secondary-foreground: 340 50% 35%;
+
+    /* Lavender - Accent */
+    --muted: 270 30% 92%;
+    --muted-foreground: 270 15% 45%;
+
+    --accent: 270 50% 75%;
+    --accent-foreground: 270 30% 25%;
+
+    /* Warm Yellow - Energy */
+    --energy: 45 90% 70%;
+    --energy-foreground: 45 60% 20%;
+
+    /* Gentle Peach - Love/Happiness */
+    --love: 15 80% 75%;
+    --love-foreground: 15 50% 30%;
+
+    --destructive: 0 70% 65%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 160 20% 88%;
+    --input: 160 20% 94%;
+    --ring: 160 55% 65%;
+
+    --radius: 1rem;
+
+    /* Gradients */
+    --gradient-sky: linear-gradient(180deg, hsl(200 70% 85%), hsl(180 60% 90%));
+    --gradient-sunset: linear-gradient(135deg, hsl(340 65% 85%), hsl(45 90% 80%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(160 30% 97%));
+    
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(160 40% 70% / 0.15);
+    --shadow-float: 0 8px 30px -8px hsl(160 40% 60% / 0.25);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .dark {
+    --background: 160 20% 12%;
+    --foreground: 160 15% 92%;
+
+    --card: 160 18% 15%;
+    --card-foreground: 160 15% 92%;
+
+    --popover: 160 18% 15%;
+    --popover-foreground: 160 15% 92%;
+
+    --primary: 160 50% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 160 40% 30%;
+
+    --secondary: 340 50% 45%;
+    --secondary-foreground: 340 80% 95%;
+
+    --muted: 270 20% 22%;
+    --muted-foreground: 270 15% 70%;
+
+    --accent: 270 40% 50%;
+    --accent-foreground: 270 20% 95%;
+
+    --energy: 45 85% 60%;
+    --energy-foreground: 45 90% 95%;
+
+    --love: 15 70% 60%;
+    --love-foreground: 15 80% 95%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 160 15% 25%;
+    --input: 160 15% 20%;
+    --ring: 160 50% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Smooth Animations */
+  * {
+    transition: var(--transition-smooth);
+  }
+
+  /* Button and Interactive Hover Effects */
+  button, a {
+    @apply transition-all duration-300;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted/30;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/40 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/60;
+  }
+}
+
+/* Utility Classes */
+@layer utilities {
+  .gradient-sky {
+    background: var(--gradient-sky);
+  }
+
+  .gradient-sunset {
+    background: var(--gradient-sunset);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-float {
+    box-shadow: var(--shadow-float);
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 2s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
