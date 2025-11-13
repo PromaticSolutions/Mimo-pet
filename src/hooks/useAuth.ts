@@ -62,35 +62,43 @@ export const useAuth = () => {
   };
 
   useEffect(() => {
-    mounted.current = true;
+  mounted.current = true;
 
-    const getInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Session:', session);
+  const getInitialSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session:', session);
 
-        if (!mounted.current) return;
-        setAuthState(prev => ({ ...prev, session, user: session?.user ?? null, loading: true }));
+      if (!mounted.current) return;
+      setAuthState(prev => ({ ...prev, session, user: session?.user ?? null, loading: true }));
 
-        if (session?.user) {
-          console.log('Fetching profile for user:', session.user.id);
-          const profile = await fetchProfile(session.user.id);
-          if (mounted.current) {
-            setAuthState(prev => ({ ...prev, profile, loading: false }));
-          }
-        } else {
-          if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
-        }
-      } catch (err) {
-        console.error('Erro ao carregar sessão inicial:', err);
+      if (session?.user) {
+        console.log('Fetching profile for user:', session.user.id);
+        const profile = await fetchProfile(session.user.id);
+        if (mounted.current) setAuthState(prev => ({ ...prev, profile, loading: false }));
+      } else {
         if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
       }
-    };
+    } catch (err) {
+      console.error('Erro ao carregar sessão inicial:', err);
+      if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
+    }
 
-    getInitialSession();
+    // Teste de conexão Supabase
+    supabase
+      .from('profiles')
+      .select('*')
+      .limit(1)
+      .then(({ data, error }) => {
+        if (error) console.error('Erro ao conectar Supabase:', error);
+        else console.log('Conexão Supabase OK:', data);
+      });
+  };
 
-    useEffect(() => {
-  console.log("🔍 Testando conexão Supabase...");
+  getInitialSession();
+
+}, []); // ✅ apenas um useEffect
+
 
   supabase
     .from('profiles')
