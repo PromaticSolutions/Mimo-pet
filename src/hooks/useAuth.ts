@@ -89,6 +89,20 @@ export const useAuth = () => {
 
     getInitialSession();
 
+    useEffect(() => {
+  console.log("🔍 Testando conexão Supabase...");
+
+  supabase
+    .from('profiles')
+    .select('*')
+    .limit(1)
+    .then(({ data, error }) => {
+      if (error) console.error('Erro ao conectar Supabase:', error);
+      else console.log('Conexão Supabase OK:', data);
+    });
+}, []);
+
+
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted.current) return;
 
