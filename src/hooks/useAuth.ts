@@ -67,11 +67,13 @@ export const useAuth = () => {
     const getInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('Session:', session);
 
         if (!mounted.current) return;
         setAuthState(prev => ({ ...prev, session, user: session?.user ?? null, loading: true }));
 
         if (session?.user) {
+          console.log('Fetching profile for user:', session.user.id);
           const profile = await fetchProfile(session.user.id);
           if (mounted.current) {
             setAuthState(prev => ({ ...prev, profile, loading: false }));
@@ -86,24 +88,6 @@ export const useAuth = () => {
     };
 
     getInitialSession();
-
-    useEffect(() => {
-  const getInitialSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('Session:', session);
-    setAuthState(prev => ({ ...prev, session, user: session?.user ?? null, loading: true }));
-
-    if (session?.user) {
-      console.log('Fetching profile for user:', session.user.id);
-      const profile = await fetchProfile(session.user.id);
-      console.log('Profile fetched:', profile);
-      setAuthState(prev => ({ ...prev, profile, loading: false }));
-    } else {
-      console.log('No session found');
-      setAuthState(prev => ({ ...prev, loading: false }));
-    }
-  };
-
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted.current) return;
