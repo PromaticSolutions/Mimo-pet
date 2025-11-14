@@ -35,13 +35,9 @@ export const useAuth = () => {
         .eq('id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Erro ao buscar perfil:', error);
-        return null;
-      }
+      if (error && error.code !== 'PGRST116') return null;
 
       if (!data) {
-        console.log('Perfil não encontrado, criando perfil padrão...');
         return {
           id: userId,
           username: null,
@@ -55,8 +51,7 @@ export const useAuth = () => {
         ...data,
         diamonds: data.ouros ?? 0,
       };
-    } catch (err) {
-      console.error('Erro inesperado em fetchProfile:', err);
+    } catch {
       return null;
     }
   };
@@ -64,44 +59,33 @@ export const useAuth = () => {
   useEffect(() => {
     mounted.current = true;
 
-    const getInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('🔐 Session inicial:', session);
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔐 Sessão inicial:', session);
 
-        let profile: Profile | null = null;
+      let profile: Profile | null = null;
+      if (session?.user) {
+        profile = await fetchProfile(session.user.id);
+      }
 
-        if (session?.user) {
-          profile = await fetchProfile(session.user.id);
-        }
-
-        if (mounted.current) {
-          setAuthState({
-            session,
-            user: session?.user ?? null,
-            profile,
-            loading: false, // ✅ importante!
-          });
-          console.log('🔐 Auth carregado com sucesso:', { session, profile });
-        }
-      } catch (err) {
-        console.error('🔐 Erro ao carregar sessão inicial:', err);
-        if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
+      if (mounted.current) {
+        setAuthState({
+          session,
+          user: session?.user ?? null,
+          profile,
+          loading: false,
+        });
       }
     };
 
-    getInitialSession();
+    init();
 
-    // Listener de auth
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔐 Auth event:', event);
       if (!mounted.current) return;
 
       let profile: Profile | null = null;
-
-      if (session?.user) {
-        profile = await fetchProfile(session.user.id);
-      }
+      if (session?.user) profile = await fetchProfile(session.user.id);
 
       if (mounted.current) {
         setAuthState({

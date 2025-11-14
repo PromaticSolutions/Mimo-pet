@@ -28,19 +28,12 @@ export const usePet = () => {
         .eq('user_id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw new Error(error.message);
-      }
+      if (error && error.code !== 'PGRST116') throw new Error(error.message);
 
       if (!mounted.current) return;
 
-      if (data) {
-        setPet(data as Pet);
-        console.log('🐾 Pet carregado:', data);
-      } else {
-        setPet(null);
-        console.log('⚠️ Nenhum pet encontrado');
-      }
+      if (data) setPet(data as Pet);
+      else setPet(null);
     } catch (err) {
       console.error('Erro ao buscar pet:', err);
       if (mounted.current) setError('Erro ao buscar dados do pet.');
@@ -53,16 +46,12 @@ export const usePet = () => {
     mounted.current = true;
 
     const init = async () => {
-      if (!authLoading) {
-        if (user) {
-          console.log('🔍 User definido, buscando pet:', user.id);
-          setLoading(true);
-          await fetchPet(user.id);
-        } else {
-          console.log('⚠️ Nenhum usuário logado, resetando pet');
-          setPet(null);
-          setLoading(false);
-        }
+      if (!authLoading && user) {
+        setLoading(true);
+        await fetchPet(user.id);
+      } else if (!authLoading && !user) {
+        setPet(null);
+        setLoading(false);
       }
     };
 
@@ -71,13 +60,10 @@ export const usePet = () => {
     return () => {
       mounted.current = false;
     };
-  }, [user, authLoading]); // ✅ depende de user e authLoading
+  }, [user, authLoading]); // ✅ espera authLoading
 
   const createPet = async (name: string) => {
-    if (!user) {
-      setError('Usuário não autenticado');
-      return;
-    }
+    if (!user) return setError('Usuário não autenticado');
 
     setLoading(true);
     try {
@@ -89,7 +75,6 @@ export const usePet = () => {
 
       if (error) throw new Error(error.message);
       setPet(data as Pet);
-      console.log('🐾 Pet criado:', data);
     } catch (err) {
       console.error('Erro ao criar pet:', err);
       setError('Erro ao criar pet');
@@ -111,19 +96,11 @@ export const usePet = () => {
 
       if (error) throw new Error(error.message);
       setPet(data as Pet);
-      console.log('🐾 Pet atualizado:', data);
     } catch (err) {
       console.error('Erro ao atualizar pet:', err);
       setError('Erro ao atualizar pet');
     }
   };
 
-  return {
-    pet,
-    loading,
-    error,
-    fetchPet: () => user && fetchPet(user.id),
-    createPet,
-    updatePetStats,
-  };
+  return { pet, loading, error, fetchPet: () => user && fetchPet(user.id), createPet, updatePetStats };
 };
