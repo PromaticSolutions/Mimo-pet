@@ -15,6 +15,7 @@ interface AuthState {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  error: string | null;
 }
 
 export const useAuth = () => {
@@ -23,6 +24,7 @@ export const useAuth = () => {
     user: null,
     profile: null,
     loading: true,
+    error: null,
   });
 
   const mounted = useRef(true);
@@ -41,7 +43,6 @@ export const useAuth = () => {
       }
 
       if (!data) {
-        console.log('Perfil não encontrado, criando perfil padrão...');
         return {
           id: userId,
           username: null,
@@ -67,28 +68,13 @@ export const useAuth = () => {
     const getInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-
         if (!mounted.current) return;
 
         if (session?.user) {
           const profile = await fetchProfile(session.user.id);
-          if (mounted.current) {
-            setAuthState({
-              session,
-              user: session.user,
-              profile,
-              loading: false
-            });
-          }
+          if (mounted.current) setAuthState({ session, user: session.user, profile, loading: false, error: null });
         } else {
-          if (mounted.current) {
-            setAuthState({
-              session: null,
-              user: null,
-              profile: null,
-              loading: false
-            });
-          }
+          if (mounted.current) setAuthState({ session: null, user: null, profile: null, loading: false, error: null });
         }
       } catch (err) {
         console.error('Erro ao carregar sessão inicial:', err);
@@ -104,23 +90,9 @@ export const useAuth = () => {
       if (['SIGNED_IN', 'TOKEN_REFRESHED', 'SIGNED_OUT'].includes(event)) {
         if (session?.user) {
           const profile = await fetchProfile(session.user.id);
-          if (mounted.current) {
-            setAuthState({
-              session,
-              user: session.user,
-              profile,
-              loading: false
-            });
-          }
+          if (mounted.current) setAuthState({ session, user: session.user, profile, loading: false, error: null });
         } else {
-          if (mounted.current) {
-            setAuthState({
-              session: null,
-              user: null,
-              profile: null,
-              loading: false
-            });
-          }
+          if (mounted.current) setAuthState({ session: null, user: null, profile: null, loading: false, error: null });
         }
       }
     });
@@ -132,23 +104,26 @@ export const useAuth = () => {
   }, []);
 
   const signInEmailPassword = async (email: string, password: string) => {
-    setAuthState(prev => ({ ...prev, loading: true }));
+    setAuthState(prev => ({ ...prev, loading: true, error: null }));
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      console.error('Erro ao logar:', error.message);
+      setAuthState(prev => ({ ...prev, loading: false, error: 'Conta não encontrada ou senha incorreta.' }));
     }
   };
 
   const signUpEmailPassword = async (email: string, password: string, username: string) => {
-    setAuthState(prev => ({ ...prev, loading: true }));
+    setAuthState(prev => ({ ...prev, loading: true, error: null }));
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
-      console.error('Erro ao criar conta:', error.message);
+      setAuthState(prev => ({ ...prev, loading: false, error: error.message }));
       return;
     }
+
     if (data.user) {
       // Cria perfil padrão
       await supabase.from('profiles').insert([{ id: data.user.id, username, crystals: 0, diamonds: 0, is_premium: false }]);
+      // Loga automaticamente após criar
+      await signInEmailPassword(email, password);
     }
   };
 

@@ -5,69 +5,31 @@ import { ShopPreview } from "@/components/ShopPreview";
 import { ExplorationCard } from "@/components/ExplorationCard";
 import { Button } from "@/components/ui/button";
 import { AppMenu } from "@/components/AppMenu";
-import { Menu, Settings, Users, Crown, LogOut } from "lucide-react";
+import { Crown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePet } from "@/hooks/usePet";
 import { supabase } from "@/lib/supabase";
-import { CreatePetForm } from "@/components/CreatePetForm";
+import { CreatePetForm } from '@/components/CreatePetForm';
 import { useState } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { session, profile, loading: authLoading, refetchProfile } = useAuth();
-  const { pet, loading: petLoading, createPet, updatePetStats } = usePet();
+  const { session, profile, loading: authLoading, error: authError, signInEmailPassword, signUpEmailPassword } = useAuth();
+  const { pet, loading: petLoading, updatePetStats } = usePet();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-
-  console.log('=== DEBUG INDEX ===');
-  console.log('authLoading:', authLoading);
-  console.log('petLoading:', petLoading);
-  console.log('session:', session);
-  console.log('pet:', pet);
-  console.log('===================');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleTaskComplete = async (earnedCrystals: number) => {
     if (!pet) return;
-
     const newEnergy = Math.min(100, pet.energy + 5);
     const newHappiness = Math.min(100, pet.happiness + 3);
-
     await updatePetStats({ energy: newEnergy, happiness: newHappiness });
   };
 
-  const handleEmailSignUp = async () => {
-    setErrorMsg("");
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      if (error) throw error;
-      alert("Conta criada com sucesso! Você está logado automaticamente.");
-    } catch (err: any) {
-      console.error("Erro ao criar conta:", err);
-      setErrorMsg(err.message);
-    }
-  };
-
-  const handleEmailSignIn = async () => {
-    setErrorMsg("");
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      console.error("Erro ao entrar:", err);
-      setErrorMsg(err.message);
-    }
-  };
-
-  // Loading auth
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -79,59 +41,63 @@ const Index = () => {
     );
   }
 
-  // Tela de login
   if (!session) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-card p-6 rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-center text-primary mb-4">Mimo</h1>
-          <p className="text-center text-muted-foreground mb-4">
-            Faça login para cuidar do seu pet de autocuidado.
-          </p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 gap-4">
+        <h1 className="text-3xl font-bold text-primary">Mimo</h1>
+        {authError && <p className="text-red-500">{authError}</p>}
 
-          {errorMsg && <p className="text-red-500 mb-2 text-sm">{errorMsg}</p>}
+        <input
+          type="email"
+          placeholder="Seu email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          className="input input-bordered w-full max-w-md"
+        />
+        <input
+          type="password"
+          placeholder="Sua senha"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          className="input input-bordered w-full max-w-md"
+        />
 
+        {isCreating && (
           <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-2 mb-2 border border-border rounded"
+            type="text"
+            placeholder="Seu nome de usuário"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            className="input input-bordered w-full max-w-md"
           />
-          <input
-            type="password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 mb-4 border border-border rounded"
-          />
+        )}
 
-          <div className="flex gap-2 mb-4">
-            <Button onClick={handleEmailSignIn} className="flex-1">
-              Entrar
-            </Button>
-            <Button onClick={handleEmailSignUp} variant="secondary" className="flex-1">
+        <div className="flex flex-col gap-2 w-full max-w-md">
+          {!isCreating ? (
+            <>
+              <Button onClick={() => signInEmailPassword(email, password)} fullWidth>
+                Entrar
+              </Button>
+              <Button onClick={() => setIsCreating(true)} fullWidth variant="outline">
+                Criar conta
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={() => {
+                signUpEmailPassword(email, password, username);
+                setIsCreating(false);
+              }}
+              fullWidth
+            >
               Criar conta
             </Button>
-          </div>
-
-          <div className="text-center mb-2">ou</div>
-
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={async () => {
-              await supabase.auth.signInWithOAuth({ provider: "google" });
-            }}
-          >
-            Entrar com Google
-          </Button>
+          )}
         </div>
       </div>
     );
   }
 
-  // Loading pet
   if (petLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -146,24 +112,16 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-sm border-b border-border shadow-soft">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AppMenu />
-              <h1 className="text-xl font-bold text-primary">Mimo</h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <CrystalCounter />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="rounded-full"
-                onClick={() => navigate("/premium")}
-              >
-                <Crown className="w-5 h-5 text-primary" />
-              </Button>
-            </div>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AppMenu />
+            <h1 className="text-xl font-bold text-primary">Mimo</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <CrystalCounter />
+            <Button size="icon" variant="ghost" className="rounded-full" onClick={() => navigate("/premium")}>
+              <Crown className="w-5 h-5 text-primary" />
+            </Button>
           </div>
         </div>
       </header>
@@ -175,17 +133,10 @@ const Index = () => {
               <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                 Bem-vindo de volta, {profile?.username || 'cuidador'}! 🌸
               </h2>
-              <p className="text-muted-foreground">
-                Seu Mimo está te esperando com carinho!
-              </p>
+              <p className="text-muted-foreground">Seu Mimo está te esperando com carinho!</p>
             </div>
 
-            <PetDisplay
-              name={pet.name}
-              level={pet.level}
-              energy={pet.energy}
-              happiness={pet.happiness}
-            />
+            <PetDisplay name={pet.name} level={pet.level} energy={pet.energy} happiness={pet.happiness} />
 
             <TaskList onTaskComplete={handleTaskComplete} />
 
@@ -209,9 +160,7 @@ const Index = () => {
 
       <footer className="mt-12 py-8 border-t border-border">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Feito com 💚 para seu bem-estar
-          </p>
+          <p className="text-sm text-muted-foreground">Feito com 💚 para seu bem-estar</p>
         </div>
       </footer>
     </div>
