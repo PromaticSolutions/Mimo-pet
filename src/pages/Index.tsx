@@ -10,14 +10,17 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePet } from "@/hooks/usePet";
 import { supabase } from "@/lib/supabase";
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { CreatePetForm } from '@/components/CreatePetForm';
+import { CreatePetForm } from "@/components/CreatePetForm";
+import { useState } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { session, profile, loading: authLoading } = useAuth();
-  const { pet, loading: petLoading, updatePetStats } = usePet();
+  const { session, profile, loading: authLoading, refetchProfile } = useAuth();
+  const { pet, loading: petLoading, createPet, updatePetStats } = usePet();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   console.log('=== DEBUG INDEX ===');
   console.log('authLoading:', authLoading);
@@ -35,7 +38,36 @@ const Index = () => {
     await updatePetStats({ energy: newEnergy, happiness: newHappiness });
   };
 
-  // Mostra loading apenas enquanto verifica auth inicial
+  const handleEmailSignUp = async () => {
+    setErrorMsg("");
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+      alert("Conta criada com sucesso! Você está logado automaticamente.");
+    } catch (err: any) {
+      console.error("Erro ao criar conta:", err);
+      setErrorMsg(err.message);
+    }
+  };
+
+  const handleEmailSignIn = async () => {
+    setErrorMsg("");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Erro ao entrar:", err);
+      setErrorMsg(err.message);
+    }
+  };
+
+  // Loading auth
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -47,43 +79,59 @@ const Index = () => {
     );
   }
 
-  // Se não tem sessão, mostra tela de login
+  // Tela de login
   if (!session) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md bg-card p-6 rounded-lg shadow-md">
           <h1 className="text-3xl font-bold text-center text-primary mb-4">Mimo</h1>
-          <p className="text-center text-muted-foreground mb-8">
+          <p className="text-center text-muted-foreground mb-4">
             Faça login para cuidar do seu pet de autocuidado.
           </p>
-          <Auth
-            supabaseClient={supabase}
-            appearance={{ theme: ThemeSupa }}
-            providers={['google']}
-            redirectTo={window.location.origin}
-            localization={{
-              variables: {
-                sign_in: {
-                  email_label: 'Seu email',
-                  password_label: 'Sua senha',
-                  button_label: 'Entrar',
-                  social_provider_text: 'Entrar com {{provider}}',
-                },
-                sign_up: {
-                  email_label: 'Seu email',
-                  password_label: 'Crie uma senha',
-                  button_label: 'Criar conta',
-                  social_provider_text: 'Cadastrar com {{provider}}',
-                }
-              }
-            }}
+
+          {errorMsg && <p className="text-red-500 mb-2 text-sm">{errorMsg}</p>}
+
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-2 mb-2 border border-border rounded"
           />
+          <input
+            type="password"
+            placeholder="Senha"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 mb-4 border border-border rounded"
+          />
+
+          <div className="flex gap-2 mb-4">
+            <Button onClick={handleEmailSignIn} className="flex-1">
+              Entrar
+            </Button>
+            <Button onClick={handleEmailSignUp} variant="secondary" className="flex-1">
+              Criar conta
+            </Button>
+          </div>
+
+          <div className="text-center mb-2">ou</div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={async () => {
+              await supabase.auth.signInWithOAuth({ provider: "google" });
+            }}
+          >
+            Entrar com Google
+          </Button>
         </div>
       </div>
     );
   }
 
-  // Mostra loading do pet apenas se auth já carregou
+  // Loading pet
   if (petLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -104,12 +152,12 @@ const Index = () => {
               <AppMenu />
               <h1 className="text-xl font-bold text-primary">Mimo</h1>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <CrystalCounter />
-              <Button 
-                size="icon" 
-                variant="ghost" 
+              <Button
+                size="icon"
+                variant="ghost"
                 className="rounded-full"
                 onClick={() => navigate("/premium")}
               >
@@ -132,7 +180,7 @@ const Index = () => {
               </p>
             </div>
 
-            <PetDisplay 
+            <PetDisplay
               name={pet.name}
               level={pet.level}
               energy={pet.energy}

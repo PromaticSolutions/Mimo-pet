@@ -35,9 +35,13 @@ export const useAuth = () => {
         .eq('id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') return null;
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao buscar perfil:', error);
+        return null;
+      }
 
       if (!data) {
+        console.log('Perfil não encontrado, criando perfil padrão...');
         return {
           id: userId,
           username: null,
@@ -51,7 +55,8 @@ export const useAuth = () => {
         ...data,
         diamonds: data.ouros ?? 0,
       };
-    } catch {
+    } catch (err) {
+      console.error('Erro inesperado em fetchProfile:', err);
       return null;
     }
   };
@@ -59,41 +64,64 @@ export const useAuth = () => {
   useEffect(() => {
     mounted.current = true;
 
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('🔐 Sessão inicial:', session);
+    const getInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      let profile: Profile | null = null;
-      if (session?.user) {
-        profile = await fetchProfile(session.user.id);
-      }
+        if (!mounted.current) return;
 
-      if (mounted.current) {
-        setAuthState({
-          session,
-          user: session?.user ?? null,
-          profile,
-          loading: false,
-        });
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id);
+          if (mounted.current) {
+            setAuthState({
+              session,
+              user: session.user,
+              profile,
+              loading: false
+            });
+          }
+        } else {
+          if (mounted.current) {
+            setAuthState({
+              session: null,
+              user: null,
+              profile: null,
+              loading: false
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar sessão inicial:', err);
+        if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
       }
     };
 
-    init();
+    getInitialSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔐 Auth event:', event);
       if (!mounted.current) return;
 
-      let profile: Profile | null = null;
-      if (session?.user) profile = await fetchProfile(session.user.id);
-
-      if (mounted.current) {
-        setAuthState({
-          session,
-          user: session?.user ?? null,
-          profile,
-          loading: false,
-        });
+      if (['SIGNED_IN', 'TOKEN_REFRESHED', 'SIGNED_OUT'].includes(event)) {
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id);
+          if (mounted.current) {
+            setAuthState({
+              session,
+              user: session.user,
+              profile,
+              loading: false
+            });
+          }
+        } else {
+          if (mounted.current) {
+            setAuthState({
+              session: null,
+              user: null,
+              profile: null,
+              loading: false
+            });
+          }
+        }
       }
     });
 
@@ -103,13 +131,35 @@ export const useAuth = () => {
     };
   }, []);
 
+  const signInEmailPassword = async (email: string, password: string) => {
+    setAuthState(prev => ({ ...prev, loading: true }));
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error('Erro ao logar:', error.message);
+    }
+  };
+
+  const signUpEmailPassword = async (email: string, password: string, username: string) => {
+    setAuthState(prev => ({ ...prev, loading: true }));
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      console.error('Erro ao criar conta:', error.message);
+      return;
+    }
+    if (data.user) {
+      // Cria perfil padrão
+      await supabase.from('profiles').insert([{ id: data.user.id, username, crystals: 0, diamonds: 0, is_premium: false }]);
+    }
+  };
+
+  const signInGoogle = async () => {
+    await supabase.auth.signInWithOAuth({ provider: 'google' });
+  };
+
   return {
     ...authState,
-    refetchProfile: async () => {
-      if (authState.user) {
-        const profile = await fetchProfile(authState.user.id);
-        setAuthState(prev => ({ ...prev, profile }));
-      }
-    },
+    signInEmailPassword,
+    signUpEmailPassword,
+    signInGoogle
   };
 };
