@@ -67,45 +67,26 @@ export const useAuth = () => {
     const getInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('🔐 Session:', session);
+        console.log('🔐 Session inicial:', session);
 
-        if (!mounted.current) return;
+        let profile: Profile | null = null;
 
         if (session?.user) {
-          console.log('🔐 Fetching profile for user:', session.user.id);
-          const profile = await fetchProfile(session.user.id);
-          if (mounted.current) {
-            setAuthState({
-              session,
-              user: session.user,
-              profile,
-              loading: false
-            });
-            console.log('🔐 Auth carregado com sucesso!');
-          }
-        } else {
-          if (mounted.current) {
-            setAuthState({
-              session: null,
-              user: null,
-              profile: null,
-              loading: false
-            });
-            console.log('🔐 Sem sessão, loading: false');
-          }
+          profile = await fetchProfile(session.user.id);
+        }
+
+        if (mounted.current) {
+          setAuthState({
+            session,
+            user: session?.user ?? null,
+            profile,
+            loading: false, // ✅ importante!
+          });
+          console.log('🔐 Auth carregado com sucesso:', { session, profile });
         }
       } catch (err) {
         console.error('🔐 Erro ao carregar sessão inicial:', err);
         if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
-      }
-
-      // Teste de conexão Supabase
-      try {
-        const { data, error } = await supabase.from('profiles').select('*').limit(1);
-        if (error) console.error('Erro ao conectar Supabase:', error);
-        else console.log('✅ Conexão Supabase OK:', data);
-      } catch (err) {
-        console.error('Erro inesperado no teste de conexão:', err);
       }
     };
 
@@ -116,27 +97,19 @@ export const useAuth = () => {
       console.log('🔐 Auth event:', event);
       if (!mounted.current) return;
 
-      if (['SIGNED_IN', 'TOKEN_REFRESHED', 'SIGNED_OUT'].includes(event)) {
-        if (session?.user) {
-          const profile = await fetchProfile(session.user.id);
-          if (mounted.current) {
-            setAuthState({
-              session,
-              user: session.user,
-              profile,
-              loading: false
-            });
-          }
-        } else {
-          if (mounted.current) {
-            setAuthState({
-              session: null,
-              user: null,
-              profile: null,
-              loading: false
-            });
-          }
-        }
+      let profile: Profile | null = null;
+
+      if (session?.user) {
+        profile = await fetchProfile(session.user.id);
+      }
+
+      if (mounted.current) {
+        setAuthState({
+          session,
+          user: session?.user ?? null,
+          profile,
+          loading: false,
+        });
       }
     });
 
