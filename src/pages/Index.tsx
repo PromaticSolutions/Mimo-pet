@@ -19,6 +19,13 @@ const Index = () => {
   const { session, profile, loading: authLoading } = useAuth();
   const { pet, loading: petLoading, updatePetStats } = usePet();
 
+  console.log('=== DEBUG INDEX ===');
+  console.log('authLoading:', authLoading);
+  console.log('petLoading:', petLoading);
+  console.log('session:', session);
+  console.log('pet:', pet);
+  console.log('===================');
+
   const handleTaskComplete = async (earnedCrystals: number) => {
     if (!pet) return;
 
