@@ -72,13 +72,29 @@ export const useAuth = () => {
 
         if (session?.user) {
           const profile = await fetchProfile(session.user.id);
-          if (mounted.current) setAuthState({ session, user: session.user, profile, loading: false, error: null });
+          if (mounted.current) {
+            setAuthState({
+              session,
+              user: session.user,
+              profile,
+              loading: false,
+              error: null,
+            });
+          }
         } else {
-          if (mounted.current) setAuthState({ session: null, user: null, profile: null, loading: false, error: null });
+          if (mounted.current) {
+            setAuthState({
+              session: null,
+              user: null,
+              profile: null,
+              loading: false,
+              error: null,
+            });
+          }
         }
       } catch (err) {
         console.error('Erro ao carregar sessão inicial:', err);
-        if (mounted.current) setAuthState(prev => ({ ...prev, loading: false }));
+        if (mounted.current) setAuthState(prev => ({ ...prev, loading: false, error: 'Erro ao carregar sessão' }));
       }
     };
 
@@ -90,9 +106,25 @@ export const useAuth = () => {
       if (['SIGNED_IN', 'TOKEN_REFRESHED', 'SIGNED_OUT'].includes(event)) {
         if (session?.user) {
           const profile = await fetchProfile(session.user.id);
-          if (mounted.current) setAuthState({ session, user: session.user, profile, loading: false, error: null });
+          if (mounted.current) {
+            setAuthState({
+              session,
+              user: session.user,
+              profile,
+              loading: false,
+              error: null,
+            });
+          }
         } else {
-          if (mounted.current) setAuthState({ session: null, user: null, profile: null, loading: false, error: null });
+          if (mounted.current) {
+            setAuthState({
+              session: null,
+              user: null,
+              profile: null,
+              loading: false,
+              error: null,
+            });
+          }
         }
       }
     });
@@ -107,23 +139,31 @@ export const useAuth = () => {
     setAuthState(prev => ({ ...prev, loading: true, error: null }));
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setAuthState(prev => ({ ...prev, loading: false, error: 'Conta não encontrada ou senha incorreta.' }));
+      setAuthState(prev => ({ ...prev, loading: false, error: 'Email ou senha inválidos.' }));
+      return;
     }
   };
 
   const signUpEmailPassword = async (email: string, password: string, username: string) => {
     setAuthState(prev => ({ ...prev, loading: true, error: null }));
+
+    // Primeiro tenta criar a conta
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
-      setAuthState(prev => ({ ...prev, loading: false, error: error.message }));
+      setAuthState(prev => ({ ...prev, loading: false, error: 'Erro ao criar conta. Email já cadastrado?' }));
       return;
     }
 
     if (data.user) {
       // Cria perfil padrão
       await supabase.from('profiles').insert([{ id: data.user.id, username, crystals: 0, diamonds: 0, is_premium: false }]);
-      // Loga automaticamente após criar
-      await signInEmailPassword(email, password);
+
+      // Loga automaticamente
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setAuthState(prev => ({ ...prev, loading: false, error: 'Conta criada mas não foi possível logar automaticamente.' }));
+        return;
+      }
     }
   };
 
