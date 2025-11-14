@@ -22,53 +22,74 @@ const Index = () => {
   const handleTaskComplete = async (earnedCrystals: number) => {
     if (!pet) return;
 
-    // Atualiza energia e felicidade do pet
     const newEnergy = Math.min(100, pet.energy + 5);
     const newHappiness = Math.min(100, pet.happiness + 3);
 
     await updatePetStats({ energy: newEnergy, happiness: newHappiness });
   };
 
-  // Se o usuário não estiver logado, mostra a interface de autenticação
-  if (!session) {
+  // Mostra loading apenas enquanto verifica auth inicial
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-            <h1 className="text-3xl font-bold text-center text-primary mb-4">Mimo</h1>
-            <p className="text-center text-muted-foreground mb-8">Faça login para cuidar do seu pet de autocuidado.</p>
-            <Auth
-              supabaseClient={supabase}
-              appearance={{ theme: ThemeSupa }}
-              providers={['google']}
-              localization={{
-                variables: {
-                  sign_in: {
-                    email_label: 'Seu email',
-                    password_label: 'Sua senha',
-                    button_label: 'Entrar',
-                    social_provider_text: 'Entrar com {{provider}}',
-                  },
-                  sign_up: {
-                    email_label: 'Seu email',
-                    password_label: 'Crie uma senha',
-                    button_label: 'Criar conta',
-                    social_provider_text: 'Cadastrar com {{provider}}',
-                  }
-                }
-              }}
-            />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
     );
   }
 
-  if (authLoading || petLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando seu Mimo...</div>;
+  // Se não tem sessão, mostra tela de login
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <h1 className="text-3xl font-bold text-center text-primary mb-4">Mimo</h1>
+          <p className="text-center text-muted-foreground mb-8">
+            Faça login para cuidar do seu pet de autocuidado.
+          </p>
+          <Auth
+            supabaseClient={supabase}
+            appearance={{ theme: ThemeSupa }}
+            providers={['google']}
+            redirectTo={window.location.origin}
+            localization={{
+              variables: {
+                sign_in: {
+                  email_label: 'Seu email',
+                  password_label: 'Sua senha',
+                  button_label: 'Entrar',
+                  social_provider_text: 'Entrar com {{provider}}',
+                },
+                sign_up: {
+                  email_label: 'Seu email',
+                  password_label: 'Crie uma senha',
+                  button_label: 'Criar conta',
+                  social_provider_text: 'Cadastrar com {{provider}}',
+                }
+              }
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Mostra loading do pet apenas se auth já carregou
+  if (petLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando seu Mimo...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-sm border-b border-border shadow-soft">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -92,7 +113,6 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-6 space-y-6 max-w-5xl">
         {pet ? (
           <>
@@ -132,7 +152,6 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="mt-12 py-8 border-t border-border">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-muted-foreground">
