@@ -21,6 +21,7 @@ export const usePet = () => {
   const mounted = useRef(true);
 
   const fetchPet = async (userId: string) => {
+    console.log('🔍 fetchPet chamado para userId:', userId);
     try {
       const { data, error } = await supabase
         .from('pets')
@@ -29,18 +30,21 @@ export const usePet = () => {
         .single();
 
       if (error && error.code !== 'PGRST116') {
+        console.error('❌ Erro ao buscar pet:', error);
         throw new Error(error.message);
       }
 
       if (!mounted.current) return;
 
       if (data) {
+        console.log('✅ Pet encontrado:', data);
         setPet(data as Pet);
       } else {
+        console.log('⚠️ Nenhum pet encontrado para este usuário');
         setPet(null);
       }
     } catch (err) {
-      console.error('Erro ao buscar pet:', err);
+      console.error('❌ Erro inesperado em fetchPet:', err);
       if (mounted.current) setError('Erro ao buscar dados do pet.');
     } finally {
       if (mounted.current) setLoading(false);
@@ -50,13 +54,19 @@ export const usePet = () => {
   useEffect(() => {
     mounted.current = true;
 
-    if (!authLoading) {
-      if (user) fetchPet(user.id);
-      else {
+    const init = async () => {
+      if (!authLoading && user) {
+        console.log('🔍 Iniciando fetch do pet para user:', user.id);
+        setLoading(true);
+        await fetchPet(user.id);
+      } else if (!authLoading && !user) {
+        console.log('⚠️ Nenhum usuário logado, resetando pet');
         setPet(null);
         setLoading(false);
       }
-    }
+    };
+
+    init();
 
     return () => {
       mounted.current = false;
@@ -71,6 +81,7 @@ export const usePet = () => {
 
     setLoading(true);
     try {
+      console.log('🔍 Criando novo pet para user:', user.id);
       const { data, error } = await supabase
         .from('pets')
         .insert([{ user_id: user.id, name }])
@@ -78,11 +89,13 @@ export const usePet = () => {
         .single();
 
       if (error) throw new Error(error.message);
-      setPet(data as Pet);
+      console.log('✅ Pet criado com sucesso:', data);
+      if (mounted.current) setPet(data as Pet);
     } catch (err) {
-      setError('Erro ao criar pet');
+      console.error('❌ Erro ao criar pet:', err);
+      if (mounted.current) setError('Erro ao criar pet');
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   };
 
@@ -90,6 +103,7 @@ export const usePet = () => {
     if (!pet) return;
 
     try {
+      console.log('🔍 Atualizando stats do pet:', updates);
       const { data, error } = await supabase
         .from('pets')
         .update(updates)
@@ -98,11 +112,22 @@ export const usePet = () => {
         .single();
 
       if (error) throw new Error(error.message);
-      setPet(data as Pet);
+      console.log('✅ Stats do pet atualizados:', data);
+      if (mounted.current) setPet(data as Pet);
     } catch (err) {
-      setError('Erro ao atualizar pet');
+      console.error('❌ Erro ao atualizar pet:', err);
+      if (mounted.current) setError('Erro ao atualizar pet');
     }
   };
 
-  return { pet, loading, error, fetchPet: () => user && fetchPet(user.id), createPet, updatePetStats };
+  return {
+    pet,
+    loading,
+    error,
+    fetchPet: async () => {
+      if (user) await fetchPet(user.id);
+    },
+    createPet,
+    updatePetStats,
+  };
 };
