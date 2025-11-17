@@ -1,168 +1,114 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { usePet } from "@/hooks/usePet";
 import { PetDisplay } from "@/components/PetDisplay";
 import { TaskList } from "@/components/TaskList";
 import { CrystalCounter } from "@/components/CrystalCounter";
 import { ShopPreview } from "@/components/ShopPreview";
 import { ExplorationCard } from "@/components/ExplorationCard";
-import { Button } from "@/components/ui/button";
+import { CreatePetForm } from "@/components/CreatePetForm";
 import { AppMenu } from "@/components/AppMenu";
+import { Button } from "@/components/ui/button";
 import { Crown } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { usePet } from "@/hooks/usePet";
-import { supabase } from "@/lib/supabase";
-import { CreatePetForm } from '@/components/CreatePetForm';
-import { useState } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { session, profile, loading: authLoading, error: authError, signInEmailPassword, signUpEmailPassword } = useAuth();
+  const { session, profile, loading: authLoading, error, signInEmailPassword, signUpEmailPassword, signInGoogle } = useAuth();
   const { pet, loading: petLoading, updatePetStats } = usePet();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
 
-  const handleTaskComplete = async (earnedCrystals: number) => {
+  const handleLogin = async () => {
+    await signInEmailPassword(email, password);
+  };
+
+  const handleCreateAccount = async () => {
+    setCreatingAccount(true);
+    await signUpEmailPassword(email, password, username);
+    setCreatingAccount(false);
+  };
+
+  const handleTaskComplete = async () => {
     if (!pet) return;
     const newEnergy = Math.min(100, pet.energy + 5);
     const newHappiness = Math.min(100, pet.happiness + 3);
     await updatePetStats({ energy: newEnergy, happiness: newHappiness });
   };
 
-  if (authLoading) {
+  if (authLoading) return <div>Carregando...</div>;
+  if (!session)
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 gap-4">
-        <h1 className="text-3xl font-bold text-primary">Mimo</h1>
-        {authError && <p className="text-red-500">{authError}</p>}
-
-        <input
-          type="email"
-          placeholder="Seu email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          className="input input-bordered w-full max-w-md"
-        />
-        <input
-          type="password"
-          placeholder="Sua senha"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="input input-bordered w-full max-w-md"
-        />
-
-        {isCreating && (
+        <div className="max-w-md w-full p-4 bg-card rounded-lg">
+          <h1 className="text-center text-2xl font-bold mb-4">Mimo</h1>
           <input
             type="text"
-            placeholder="Seu nome de usuário"
+            placeholder="Seu email"
+            className="input mb-2 w-full"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Sua senha"
+            className="input mb-2 w-full"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Nome de usuário"
+            className="input mb-2 w-full"
             value={username}
             onChange={e => setUsername(e.target.value)}
-            className="input input-bordered w-full max-w-md"
           />
-        )}
-
-        <div className="flex flex-col gap-2 w-full max-w-md">
-          {!isCreating ? (
-            <>
-              <Button onClick={() => signInEmailPassword(email, password)} fullWidth>
-                Entrar
-              </Button>
-              <Button onClick={() => setIsCreating(true)} fullWidth variant="outline">
-                Criar conta
-              </Button>
-            </>
-          ) : (
-            <Button
-              onClick={() => {
-                signUpEmailPassword(email, password, username);
-                setIsCreating(false);
-              }}
-              fullWidth
-            >
-              Criar conta
-            </Button>
-          )}
+          {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+          <Button onClick={handleLogin} disabled={creatingAccount} className="mb-2 w-full">
+            Entrar
+          </Button>
+          <Button onClick={handleCreateAccount} disabled={creatingAccount} className="w-full">
+            {creatingAccount ? "Criando conta..." : "Criar conta"}
+          </Button>
+          <Button onClick={signInGoogle} className="mt-2 w-full">
+            Entrar com Google
+          </Button>
         </div>
       </div>
     );
-  }
 
-  if (petLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando seu Mimo...</p>
-        </div>
-      </div>
-    );
-  }
+  if (petLoading) return <div>Carregando seu Mimo...</div>;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-sm border-b border-border shadow-soft">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AppMenu />
-            <h1 className="text-xl font-bold text-primary">Mimo</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <CrystalCounter />
-            <Button size="icon" variant="ghost" className="rounded-full" onClick={() => navigate("/premium")}>
-              <Crown className="w-5 h-5 text-primary" />
-            </Button>
-          </div>
+    <div className="min-h-screen">
+      <header className="sticky top-0 bg-card p-4 flex justify-between items-center">
+        <AppMenu />
+        <h1>Mimo</h1>
+        <div className="flex gap-2 items-center">
+          <CrystalCounter />
+          <Button onClick={() => navigate("/premium")}>
+            <Crown />
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-6 max-w-5xl">
+      <main className="p-4">
         {pet ? (
           <>
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                Bem-vindo de volta, {profile?.username || 'cuidador'}! 🌸
-              </h2>
-              <p className="text-muted-foreground">Seu Mimo está te esperando com carinho!</p>
-            </div>
-
-            <PetDisplay name={pet.name} level={pet.level} energy={pet.energy} happiness={pet.happiness} />
-
+            <PetDisplay {...pet} />
             <TaskList onTaskComplete={handleTaskComplete} />
-
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-4">
               <ShopPreview />
               <ExplorationCard />
             </div>
           </>
         ) : (
-          <div className="py-16">
-            <CreatePetForm />
-          </div>
+          <CreatePetForm />
         )}
-
-        <div className="bg-muted/50 border-2 border-border/50 rounded-2xl p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            💡 <span className="font-medium">Dica:</span> Complete tarefas diárias para ganhar cristais e fazer seu Mimo crescer feliz e saudável!
-          </p>
-        </div>
       </main>
-
-      <footer className="mt-12 py-8 border-t border-border">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground">Feito com 💚 para seu bem-estar</p>
-        </div>
-      </footer>
     </div>
   );
 };
