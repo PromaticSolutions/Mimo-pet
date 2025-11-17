@@ -33,11 +33,11 @@ export const useAuth = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, crystals, is_premium, ouros')
+        .select('id, username, crystals, diamonds, is_premium') // CORRIGIDO: Selecionando 'diamonds'
         .eq('id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== 'PGRST116') { // PGRST116 é "no rows found"
         console.error('Erro ao buscar perfil:', error);
         return null;
       }
@@ -52,10 +52,8 @@ export const useAuth = () => {
         };
       }
 
-      return {
-        ...data,
-        diamonds: data.ouros ?? 0,
-      };
+      // O objeto 'data' já contém as colunas corretas (id, username, crystals, diamonds, is_premium)
+      return data as Profile;
     } catch (err) {
       console.error('Erro inesperado em fetchProfile:', err);
       return null;
@@ -103,7 +101,8 @@ export const useAuth = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted.current) return;
 
-      if (['SIGNED_IN', 'TOKEN_REFRESHED', 'SIGNED_OUT'].includes(event)) {
+      // Garante que o estado de loading seja false em qualquer mudança de estado de autenticação
+      if (['SIGNED_IN', 'TOKEN_REFRESHED', 'SIGNED_OUT', 'INITIAL_SESSION'].includes(event)) {
         if (session?.user) {
           const profile = await fetchProfile(session.user.id);
           if (mounted.current) {
@@ -156,9 +155,15 @@ export const useAuth = () => {
 
     if (data.user) {
       // Cria perfil padrão
-      await supabase.from('profiles').insert([{ id: data.user.id, username, crystals: 0, diamonds: 0, is_premium: false }]);
+      // Usamos a coluna 'diamonds' que agora é consistente com o código e o novo esquema SQL
+      const { error: profileError } = await supabase.from('profiles').insert([{ id: data.user.id, username, crystals: 0, diamonds: 0, is_premium: false }]);
+      
+      if (profileError) {
+        // Se falhar ao criar o perfil, loga o erro e tenta logar o usuário (caso o perfil já exista)
+        console.error('Erro ao criar perfil após signup:', profileError);
+      }
 
-      // Loga automaticamente
+      // Loga automaticamente (necessário para que o authListener pegue a sessão completa)
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
         setAuthState(prev => ({ ...prev, loading: false, error: 'Conta criada mas não foi possível logar automaticamente.' }));

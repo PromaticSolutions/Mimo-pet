@@ -24,11 +24,11 @@ export const usePet = () => {
     try {
       const { data, error } = await supabase
         .from('pets')
-        .select('*')
+        .select('id, user_id, name, level, energy, happiness, last_fed, last_played') // CORRIGIDO: Seleção explícita de colunas
         .eq('user_id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw new Error(error.message);
+      if (error && error.code !== 'PGRST116') throw new Error(error.message); // PGRST116 é "no rows found"
 
       if (!mounted.current) return;
 
@@ -67,9 +67,18 @@ export const usePet = () => {
 
     setLoading(true);
     try {
+      // Insere o pet com todos os valores padrão definidos na interface Pet
       const { data, error } = await supabase
         .from('pets')
-        .insert([{ user_id: user.id, name }])
+        .insert([{ 
+          user_id: user.id, 
+          name,
+          level: 1,
+          energy: 100,
+          happiness: 100,
+          last_fed: new Date().toISOString(),
+          last_played: new Date().toISOString(),
+        }])
         .select()
         .single();
 
@@ -102,5 +111,14 @@ export const usePet = () => {
     }
   };
 
-  return { pet, loading, error, fetchPet: () => user && fetchPet(user.id), createPet, updatePetStats };
+  // Adiciona uma função para verificar se o pet existe, para evitar o erro 409
+  const petExists = async (userId: string): Promise<boolean> => {
+    const { count } = await supabase
+      .from('pets')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    return (count ?? 0) > 0;
+  };
+
+  return { pet, loading, error, fetchPet: () => user && fetchPet(user.id), createPet, updatePetStats, petExists };
 };

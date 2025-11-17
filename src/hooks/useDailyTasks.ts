@@ -35,7 +35,7 @@ export const useDailyTasks = () => {
       
       let { data: fetchedTasks, error: fetchError } = await supabase
         .from('daily_tasks')
-        .select('*')
+        .select('id, user_id, title, crystals_reward, is_completed, due_date') // CORRIGIDO: Seleção explícita de colunas
         .eq('user_id', userId)
         .eq('due_date', today);
 
@@ -78,7 +78,7 @@ export const useDailyTasks = () => {
       setTasks([]);
       setLoading(false);
     }
-  }, [user, authLoading, fetchTasks]);
+  }, [user, authLoading]); // CORRIGIDO: Removida a dependência 'fetchTasks' para evitar loops desnecessários.
 
   const completeTask = async (taskId: string) => {
     if (!user) {

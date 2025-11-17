@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { ShoppingBag, Sparkles, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,39 +11,74 @@ import { toast } from "sonner";
 
 const Shop = () => {
   const navigate = useNavigate();
-  const [crystals] = useState(0);
+  const { profile, user } = useAuth();
+  const [shopItems, setShopItems] = useState<{ accessories: any[]; furniture: any[] }>({ accessories: [], furniture: [] });
+  const [loading, setLoading] = useState(true);
 
-  const shopItems = {
-    accessories: [
-      { id: 1, name: "Chapéu de Sol", emoji: "🎩", price: 50, type: "crystal" },
-      { id: 2, name: "Cachecol Fofo", emoji: "🧣", price: 30, type: "crystal" },
-      { id: 3, name: "Óculos de Star", emoji: "🕶️", price: 75, type: "crystal" },
-      { id: 4, name: "Coroa Real", emoji: "👑", price: 100, type: "diamond" },
-      { id: 5, name: "Laço Rosa", emoji: "🎀", price: 40, type: "crystal" },
-      { id: 6, name: "Boné Estiloso", emoji: "🧢", price: 45, type: "crystal" },
-    ],
-    furniture: [
-      { id: 7, name: "Sofá Confortável", emoji: "🛋️", price: 120, type: "crystal" },
-      { id: 8, name: "Plantinha Feliz", emoji: "🪴", price: 60, type: "crystal" },
-      { id: 9, name: "Luminária Mágica", emoji: "💡", price: 80, type: "crystal" },
-      { id: 10, name: "Tapete Premium", emoji: "🎨", price: 150, type: "diamond" },
-      { id: 11, name: "Estante de Livros", emoji: "📚", price: 90, type: "crystal" },
-      { id: 12, name: "Almofada Fofa", emoji: "🛏️", price: 50, type: "crystal" },
-    ],
-  };
+  useEffect(() => {
+    const fetchShopItems = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('shop_items')
+        .select('*')
+        .eq('is_available', true);
 
-  const handlePurchase = (item: any) => {
-    if (item.type === "diamond") {
-      toast.error("Você precisa de diamantes para comprar este item!");
+      if (error) {
+        console.error("Erro ao buscar itens da loja:", error);
+        toast.error("Erro ao carregar a loja.");
+        setLoading(false);
+        return;
+      }
+
+      // Assumindo que 'type' no banco de dados é 'accessory' ou 'furniture'
+      const accessories = data.filter(item => item.type === 'accessory');
+      const furniture = data.filter(item => item.type === 'furniture');
+
+      setShopItems({ accessories, furniture });
+      setLoading(false);
+    };
+
+    fetchShopItems();
+  }, []);
+
+  const handlePurchase = async (item: any) => {
+    if (!user || !profile) {
+      toast.error("Você precisa estar logado para comprar itens.");
       return;
     }
 
-    if (crystals < item.price) {
-      toast.error("Cristais insuficientes! Complete mais tarefas. 💎");
+    // Usa 'diamonds' ou 'crystals' com base no tipo de item
+    const currency = item.type === "diamond" ? "diamonds" : "crystals";
+    const userCurrency = profile[currency];
+
+    if (userCurrency < item.price) {
+      toast.error(`${currency === "diamonds" ? "Diamantes" : "Cristais"} insuficientes!`);
       return;
     }
 
-    toast.success(`${item.name} comprado com sucesso! 🎉`);
+    try {
+      // 1. Inserir no inventário
+      const { error: inventoryError } = await supabase
+        .from('user_inventory')
+        .insert([{ user_id: user.id, item_id: item.id }]);
+
+      if (inventoryError) throw inventoryError;
+
+      // 2. Atualizar o perfil do usuário (deduzir o custo)
+      const newCurrencyValue = userCurrency - item.price;
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({ [currency]: newCurrencyValue })
+        .eq('id', user.id);
+
+      if (profileUpdateError) throw profileUpdateError;
+
+      toast.success(`${item.name} comprado com sucesso! 🎉`);
+      // O useAuth hook deve re-buscar o perfil e atualizar o estado global
+    } catch (error) {
+      console.error("Erro na compra:", error);
+      toast.error("Erro ao finalizar a compra.");
+    }
   };
 
   const ShopItemCard = ({ item }: { item: any }) => (
@@ -49,7 +86,7 @@ const Shop = () => {
       <div className="space-y-3">
         <div className="relative">
           <div className="aspect-square bg-gradient-to-br from-secondary/20 to-accent/20 rounded-xl flex items-center justify-center">
-            <span className="text-5xl">{item.emoji}</span>
+            <span className="text-5xl">{item.emoji || '✨'}</span> {/* Usando um fallback para emoji */}
           </div>
           {item.type === "diamond" && (
             <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground">
@@ -62,7 +99,7 @@ const Shop = () => {
           <h4 className="font-bold text-sm mb-1">{item.name}</h4>
           <p className="text-primary font-bold">
             {item.price}
-            {item.type === "crystal" ? "💎" : "💠"}
+            {item.type === "diamond" ? "💠" : "💎"}
           </p>
         </div>
         <Button
@@ -93,9 +130,15 @@ const Shop = () => {
               <ShoppingBag className="w-5 h-5 text-primary" />
               <h1 className="text-xl font-bold">Lojinha do Mimo</h1>
             </div>
-            <div className="flex items-center gap-2 bg-primary/10 px-3 py-1 rounded-full">
-              <span className="text-sm font-bold">{crystals}</span>
-              <span className="text-lg">💎</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-primary/10 px-3 py-1 rounded-full">
+                <span className="text-sm font-bold">{profile?.crystals ?? 0}</span>
+                <span className="text-lg">💎</span>
+              </div>
+              <div className="flex items-center gap-1 bg-yellow-500/10 px-3 py-1 rounded-full">
+                <span className="text-sm font-bold">{profile?.diamonds ?? 0}</span>
+                <span className="text-lg">💠</span>
+              </div>
             </div>
           </div>
         </div>
@@ -117,9 +160,13 @@ const Shop = () => {
               </p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {shopItems.accessories.map((item) => (
-                <ShopItemCard key={item.id} item={item} />
-              ))}
+              {loading ? (
+                <p>Carregando itens...</p>
+              ) : (
+                shopItems.accessories.map((item) => (
+                  <ShopItemCard key={item.id} item={item} />
+                ))
+              )}
             </div>
           </TabsContent>
 
@@ -131,9 +178,13 @@ const Shop = () => {
               </p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {shopItems.furniture.map((item) => (
-                <ShopItemCard key={item.id} item={item} />
-              ))}
+              {loading ? (
+                <p>Carregando itens...</p>
+              ) : (
+                shopItems.furniture.map((item) => (
+                  <ShopItemCard key={item.id} item={item} />
+                ))
+              )}
             </div>
           </TabsContent>
         </Tabs>
